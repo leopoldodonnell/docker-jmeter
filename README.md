@@ -1,7 +1,8 @@
 # WIP - docker-jmeter
 
-TODO: Complete the Readme
-TODO: Complete the Helm Chart and Example
+* TODO: Complete the Readme
+* TODO: Complete the Helm Chart
+* TODO: Provide Helm Example
 
 A JMeter Docker Container for Master/Slave load testing
 
