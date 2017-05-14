@@ -1,0 +1,180 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}-master
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    role: master
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+        role: master
+        
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+          {
+            "name": "fix-perms",
+            "image": "{{ .Values.registry }}/pvue/alpine:latest",
+            "imagePullPolicy": "{{ .Values.image.pullPolicy }}",
+            "command":["sh", "-c", "/bin/chmod 400 /etc/git-secret/ssh"],
+            "volumeMounts": [
+              {
+                "name": "git-secret",
+                "mountPath": "/etc/git-secret/ssh",
+                "subPath": "ssh"
+              }
+            ],
+            "securityContext": {
+              "runAsUser": 0
+            }
+          },
+          {
+            "name": "test-repo",
+            "image": "{{ .Values.image.gitSync }}",
+            "imagePullPolicy": "{{ .Values.image.pullPolicy }}",
+            "args": [
+              "--repo", "{{ .Values.test.repo }}", 
+              "--dest", "{{ .Values.test.repo_name }}",
+              "--branch", "{{ .Values.test.branch }}",
+              "--ssh",
+              "--one-time"
+            ],
+            "volumeMounts": [
+              {
+                "name": "git-secret",
+                "mountPath": "/etc/git-secret/ssh",
+                "subPath": "ssh"
+              },
+              {
+                "name": "test-volume",
+                "mountPath": "/git"
+              }
+            ],
+            "securityContext": {
+              "runAsUser": 0
+            }
+          },
+          {
+            "name": "get-worker-ips",
+            "image": "{{ .Values.registry }}/wrangler:latest",
+            "imagePullPolicy": "{{ .Values.image.pullPolicy }}",
+            "command":[
+              "/bin/sh", 
+              "/tmp/config/create-jmeter-properties", 
+              "/tmp/config/properties", 
+              "/{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties"
+            ],
+            "volumeMounts": [
+              {
+                "name": "test-volume",
+                "mountPath": "/{{ .Values.test.repo_name }}",
+                "subPath": "{{ .Values.test.repo_name }}"
+              },
+              {
+                "name": "configmap-properties",
+                "mountPath": "/tmp/config"
+              }
+            ]
+          }
+        ]'
+    spec:
+      volumes:
+      - name: git-secret
+        secret:
+          secretName: {{ .Values.sshSecret }}
+          defaultMode: 0400
+      # test-volume contains the git repository with the .jmx file
+      - name: test-volume
+        emptyDir: {}
+      # configmap-properties contains property file generation scripts
+      - name: configmap-properties
+        configMap:
+          name: {{ template "fullname" . }}
+      
+      # TODO: Kubernetes 1.6 supports initContainers with 'spec'. Switch once
+      # there's no reason to hold onto the messy old 'annotations' approach
+      
+      # initContainers:
+      # # Fix the ssh secrets permissions
+      # - name: fix-perms
+      #   image: {{ .Values.registry }}/pvue/alpine:latest
+      #   imagePullPolicy: {{ .Values.image.pullPolicy }}
+      #   command:
+      #   - sh
+      #   - -c
+      #   - /bin/chmod 400 /etc/git-secret/ssh
+      #   volumeMounts:
+      #   - name: git-secret
+      #     mountPath: /etc/git-secret/ssh
+      #     subPath: ssh
+      #   securityContext:
+      #     runAsUser: 0
+      #
+      # # Go get the test from git
+      # - name: test-repo
+      #   image: {{ .Values.image.gitSync }}
+      #   imagePullPolicy: {{ .Values.image.pullPolicy }}
+      #   args: [
+      #     "--repo", "{{ .Values.test.repo }}",
+      #     "--dest", "{{ .Values.test.repo_name }}",
+      #     "--branch", "{{ .Values.test.branch }}",
+      #     "--ssh",
+      #     "--one-time"
+      #   ]
+      #   volumeMounts:
+      #   - mountPath: /git
+      #     name: test-volume
+      #   - name: git-secret
+      #     mountPath: /etc/git-secret/ssh
+      #     subPath: ssh
+      #   securityContext:
+      #     runAsUser: 0
+      #
+      # # Go get the worker IPs
+      # - name: get-worker-ips
+      #   image: {{ .Values.registry }}/wrangler:latest
+      #   volumeMounts:
+      #   - mountPath: /{{ .Values.test.repo_name }}
+      #     name: test-volume
+      #     subPath: {{ .Values.test.repo_name }}
+      #   - mountPath: /tmp/config
+      #     name: configmap-properties
+      #   command:
+      #   - /bin/sh
+      #   - /tmp/config/create-jmeter-properties
+      #   - /tmp/config/properties
+      #   - /{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties
+        
+      containers:
+      - name: {{ template "fullname" . }}-master
+        image: "{{ .Values.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - tail
+        - -f
+        - /dev/null
+        volumeMounts:
+        - mountPath: /{{ .Values.test.repo_name }}
+          name: test-volume
+          subPath: {{ .Values.test.repo_name }}
+        ports:
+        - containerPort: 1099 
+        - containerPort: 50000
+        env:
+        - name: JMETER_MODE
+          value: master
+        - name: JMETER_LOG
+          value: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}.log
+        - name: JMETER_PROPERTIES
+          value: /{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties
+        - name: JMETER_LOADTEST
+          value: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}.jmx
+        - name: JMETER_RESULTS
+          value: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}-results.jtl
+        - name: JMETER_TESTARGS
+          value: {{ .Values.test.args }}
+        resources:
+{{ toYaml .Values.resources | indent 12 }}

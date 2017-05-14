@@ -1,0 +1,7 @@
+apiVersion: v1
+description: Deploy JMeter master and workers for a load test
+name: jmeter
+version: 0.1.0
+keywords:
+  - loadtest
+  - jmeter

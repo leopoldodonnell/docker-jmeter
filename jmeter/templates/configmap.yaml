@@ -1,0 +1,26 @@
+# This is a simple example of using a config map to create a single page
+# static site.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "fullname" .}}
+  labels:
+    release: {{ .Release.Name | quote }}
+    app: {{template "fullname" .}}
+    heritage: {{.Release.Service | quote }}
+data:
+  # When the config map is mounted as a volume, these will be created as
+  # files.
+  properties: |
+    remote_hosts=<HOSTS>
+{{ toYaml .Values.test.properties | indent 4 }}
+  create-jmeter-properties: |
+    ips="";
+
+    while [ "$(echo $ips |wc -w)" -ne "{{ .Values.test.workers }}" ]
+    do
+      ips=$(kubectl get pods -l app={{ template "fullname" . }},role=worker --all-namespaces -o jsonpath='{.items[*].status.podIP}');
+      sleep 2;
+    done
+    remote_hosts=$(echo $ips |sed -e 's/ /,/g')
+    sed -e "s|<HOSTS>|$remote_hosts|g" $1 > $2

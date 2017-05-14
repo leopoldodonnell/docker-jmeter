@@ -1,0 +1,31 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}-worker
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    role: worker
+spec:
+  replicas: {{ .Values.test.workers }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+        role: worker
+    spec:
+      volumes:
+        
+      containers:
+      - name: {{ template "fullname" . }}-worker
+        image: "{{ .Values.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 1099 
+        - containerPort: 50000
+        env:
+        - name: JMETER_MODE
+          value: worker
+        - name: JMETER_LOG
+          value: {{ .Values.test.name }}.log
+        resources:
+{{ toYaml .Values.resources | indent 12 }}

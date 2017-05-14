@@ -1,0 +1,94 @@
+FROM 082822998707.dkr.ecr.us-east-1.amazonaws.com/pvue/alpine:latest
+
+MAINTAINER <awsprojectteam@pearson.com>
+
+# Install cURL and CA Certificates for SSL support in the JVM, using glibc to interface oracle JRE with libc to run virtual machines
+RUN apk --update add curl ca-certificates tar unzip bash && \
+    curl -Ls https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.21-r2/glibc-2.21-r2.apk> /tmp/glibc-2.21-r2.apk && \
+    apk add --allow-untrusted /tmp/glibc-2.21-r2.apk
+
+# Symlinks to fix issues with error "libc.musl-x86_64.so.1: cannot open shared object file: No such file or directory"
+RUN ln -s /lib/libc.musl-x86_64.so.1 /usr/lib/libc.musl-x86_64.so.1 && \
+    ln -s /lib/libz.so.1 /usr/lib/libz.so.1
+
+# Java Version
+ENV JAVA_VERSION_MAJOR=8 \
+    JAVA_VERSION_MINOR=102 \
+    JAVA_VERSION_BUILD=14 \
+    JAVA_PACKAGE=jdk \
+    JAVA_HOME=/opt/jdk \
+    PATH=${PATH}:/opt/jdk/bin
+
+ARG JMETER_VERSION="3.1"
+ENV JMETER_HOME /opt/apache-jmeter-${JMETER_VERSION}
+ENV JMETER_BIN	${JMETER_HOME}/bin
+ENV JMETER_DOWNLOAD_URL  http://mirror.serversupportforum.de/apache/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+ENV JMETER_PLUGINS_VERSION=1.4.0
+ENV JMETER_PLUGINS_DOWNLOAD_URL_1  https://jmeter-plugins.org/downloads/file/JMeterPlugins-Standard-${JMETER_PLUGINS_VERSION}.zip
+ENV JMETER_PLUGINS_DOWNLOAD_URL_2  https://jmeter-plugins.org/downloads/file/JMeterPlugins-Extras-${JMETER_PLUGINS_VERSION}.zip
+ENV JMETER_PLUGINS_DOWNLOAD_URL_3  https://jmeter-plugins.org/downloads/file/JMeterPlugins-ExtrasLibs-${JMETER_PLUGINS_VERSION}.zip
+
+# Prepare image
+RUN mkdir /opt \
+    && apk add --update libstdc++ \
+    && rm -rf /var/cache/apk/* \
+    #
+    # Download and unarchive Java
+    #
+    && curl -kLOH "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" \
+    http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-b${JAVA_VERSION_BUILD}/${JAVA_PACKAGE}-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar.gz \
+    && gunzip ${JAVA_PACKAGE}-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar.gz \
+    && tar -xf ${JAVA_PACKAGE}-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar -C /opt \
+    && rm ${JAVA_PACKAGE}-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar \
+    && ln -s /opt/jdk1.${JAVA_VERSION_MAJOR}.0_${JAVA_VERSION_MINOR} /opt/jdk \
+    && rm -rf \
+      /opt/jdk/*src.zip \
+      /opt/jdk/lib/missioncontrol \
+      /opt/jdk/lib/visualvm \
+      /opt/jdk/lib/*javafx* \
+      /opt/jdk/jre/lib/plugin.jar \
+      /opt/jdk/jre/lib/ext/jfxrt.jar \
+      /opt/jdk/jre/bin/javaws \
+      /opt/jdk/jre/lib/javaws.jar \
+      /opt/jdk/jre/lib/desktop \
+      /opt/jdk/jre/plugin \
+      /opt/jdk/jre/lib/deploy* \
+      /opt/jdk/jre/lib/*javafx* \
+      /opt/jdk/jre/lib/*jfx* \
+      /opt/jdk/jre/lib/amd64/libdecora_sse.so \
+      /opt/jdk/jre/lib/amd64/libprism_*.so \
+      /opt/jdk/jre/lib/amd64/libfxplugins.so \
+      /opt/jdk/jre/lib/amd64/libglass.so \
+      /opt/jdk/jre/lib/amd64/libgstreamer-lite.so \
+      /opt/jdk/jre/lib/amd64/libjavafx*.so \
+      /opt/jdk/jre/lib/amd64/libjfx*.so \
+    && rm -fr /tmp/*
+
+RUN mkdir -p /tmp/dependencies
+RUN mkdir -p /tmp/dependencies/jmeter-plugins
+
+RUN	curl -L --silent ${JMETER_DOWNLOAD_URL} >  /tmp/dependencies/apache-jmeter-${JMETER_VERSION}.tgz
+RUN curl -L --silent ${JMETER_PLUGINS_DOWNLOAD_URL_1} > /tmp/dependencies/jmeter-plugins/JMeterPlugins-Standard-${JMETER_PLUGINS_VERSION}.zip
+RUN curl -L --silent ${JMETER_PLUGINS_DOWNLOAD_URL_2} > /tmp/dependencies/jmeter-plugins/JMeterPlugins-Extras-${JMETER_PLUGINS_VERSION}.zip
+RUN curl -L --silent ${JMETER_PLUGINS_DOWNLOAD_URL_3} > /tmp/dependencies/jmeter-plugins/JMeterPlugins-ExtrasLibs-${JMETER_PLUGINS_VERSION}.zip
+
+RUN mkdir -p /opt
+
+RUN tar -xzf /tmp/dependencies/apache-jmeter-${JMETER_VERSION}.tgz -C /opt
+
+RUN unzip -o /tmp/dependencies/jmeter-plugins/JMeterPlugins-Standard-${JMETER_PLUGINS_VERSION}.zip -d  /opt/apache-jmeter-${JMETER_VERSION}/
+RUN unzip -o /tmp/dependencies/jmeter-plugins/JMeterPlugins-Extras-${JMETER_PLUGINS_VERSION}.zip -d  /opt/apache-jmeter-${JMETER_VERSION}/
+RUN unzip -o /tmp/dependencies/jmeter-plugins/JMeterPlugins-ExtrasLibs-${JMETER_PLUGINS_VERSION}.zip -d  /opt/apache-jmeter-${JMETER_VERSION}/
+RUN    rm -rf /tmp/dependencies
+
+ENV PATH $PATH:$JMETER_BIN
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
+WORKDIR	${JMETER_HOME}
+
+# By default run JMeter as a master
+ENV JMETER_MODE master
+
+# Send in the name of the JMeter file as a Command argument
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
