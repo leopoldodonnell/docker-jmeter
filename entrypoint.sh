@@ -12,7 +12,7 @@ n=$(($freeMem/10*2))
 export JVM_ARGS="-Xmn${n}m -Xms${s}m -Xmx${x}m -XX:NewSize=512m -XX:MaxNewSize=1024m"
 
 if [[ "$JMETER_MODE" = "master" ]]; then
-  JMETER_ARGS="-n -t ${JMETER_LOADTEST} ${JMETER_TESTARGS} -l ${JMETER_RESULTS} -p ${JMETER_PROPERTIES:-/jmeter.properties}"
+  JMETER_ARGS="-n -t ${JMETER_LOADTEST} ${JMETER_TESTARGS} -l ${JMETER_RESULTS} -r -p ${JMETER_PROPERTIES:-/jmeter.properties}"
 elif [[ "$JMETER_MODE" = "worker" ]]; then
   JMETER_ARGS="-n -s"
   export JVM_ARGS="$JVM_ARGS \
