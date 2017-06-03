@@ -1,12 +1,11 @@
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: {{ template "fullname" . }}-master
   labels:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     role: master
 spec:
-  replicas: 1
   template:
     metadata:
       labels:
@@ -36,9 +35,9 @@ spec:
             "image": "{{ .Values.image.gitSync }}",
             "imagePullPolicy": "{{ .Values.image.pullPolicy }}",
             "args": [
-              "--repo", "{{ .Values.test.repo }}", 
-              "--dest", "{{ .Values.test.repo_name }}",
-              "--branch", "{{ .Values.test.branch }}",
+              "--repo", "{{ .Values.jmeter.repo }}", 
+              "--dest", "{{ .Values.jmeter.repo_name }}",
+              "--branch", "{{ .Values.jmeter.branch }}",
               "--ssh",
               "--one-time"
             ],
@@ -65,13 +64,13 @@ spec:
               "/bin/sh", 
               "/tmp/config/create-jmeter-properties", 
               "/tmp/config/properties", 
-              "/{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties"
+              "/{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.name }}.properties"
             ],
             "volumeMounts": [
               {
                 "name": "test-volume",
-                "mountPath": "/{{ .Values.test.repo_name }}",
-                "subPath": "{{ .Values.test.repo_name }}"
+                "mountPath": "/{{ .Values.jmeter.repo_name }}",
+                "subPath": "{{ .Values.jmeter.repo_name }}"
               },
               {
                 "name": "configmap-properties",
@@ -118,9 +117,9 @@ spec:
       #   image: {{ .Values.image.gitSync }}
       #   imagePullPolicy: {{ .Values.image.pullPolicy }}
       #   args: [
-      #     "--repo", "{{ .Values.test.repo }}",
-      #     "--dest", "{{ .Values.test.repo_name }}",
-      #     "--branch", "{{ .Values.test.branch }}",
+      #     "--repo", "{{ .Values.jmeter.repo }}",
+      #     "--dest", "{{ .Values.jmeter.repo_name }}",
+      #     "--branch", "{{ .Values.jmeter.branch }}",
       #     "--ssh",
       #     "--one-time"
       #   ]
@@ -137,29 +136,36 @@ spec:
       # - name: get-worker-ips
       #   image: {{ .Values.registry }}/wrangler:latest
       #   volumeMounts:
-      #   - mountPath: /{{ .Values.test.repo_name }}
+      #   - mountPath: /{{ .Values.jmeter.repo_name }}
       #     name: test-volume
-      #     subPath: {{ .Values.test.repo_name }}
+      #     subPath: {{ .Values.jmeter.repo_name }}
       #   - mountPath: /tmp/config
       #     name: configmap-properties
       #   command:
       #   - /bin/sh
       #   - /tmp/config/create-jmeter-properties
       #   - /tmp/config/properties
-      #   - /{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties
+      #   - /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.name }}.properties
         
       containers:
       - name: {{ template "fullname" . }}-master
         image: "{{ .Values.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command:
-        - tail
-        - -f
-        - /dev/null
+        # command:
+        # - tail
+        # - -f
+        # - /dev/null
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh, 
+              - -c
+              - aws s3 cp --recursive /report/{{ .Values.jmeter.name }} s3://{{ .Values.jmeter.reportBucket }}/{{ .Values.jmeter.repoName }}/{{ .Values.jmeter.name }}-{{ now | date "20060102:0210" }}
         volumeMounts:
-        - mountPath: /{{ .Values.test.repo_name }}
+        - mountPath: /{{ .Values.jmeter.repo_name }}
           name: test-volume
-          subPath: {{ .Values.test.repo_name }}
+          subPath: {{ .Values.jmeter.repo_name }}
         ports:
         - containerPort: 1099 
         - containerPort: 50000
@@ -167,14 +173,12 @@ spec:
         - name: JMETER_MODE
           value: master
         - name: JMETER_LOG
-          value: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}.log
-        - name: JMETER_PROPERTIES
-          value: /{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties
+          value: /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.testDir}}/{{ .Values.jmeter.name }}.log
         - name: JMETER_LOADTEST
-          value: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}.jmx
+          value: /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.testDir}}/{{ .Values.jmeter.name }}.jmx
         - name: JMETER_RESULTS
-          value: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}-results.jtl
+          value: /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.testDir}}/{{ .Values.jmeter.name }}-results.jtl
         - name: JMETER_TESTARGS
-          value: {{ .Values.test.args }}
+          value: {{ .Values.jmeter.args }}
         resources:
 {{ toYaml .Values.resources | indent 12 }}

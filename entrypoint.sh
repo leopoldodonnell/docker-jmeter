@@ -3,6 +3,7 @@ set -e
 
 JMETER_MODE=${JMETER_MODE:-master}
 JMETER_LOG=${JMETER_LOG:-jmeter.log}
+JMETER_RESULTS=${JMETER_RESULTS:-jmeter.jtl}
 
 freeMem=`awk '/MemFree/ { print int($2/1024) }' /proc/meminfo`
 s=$(($freeMem/10*8))
@@ -28,5 +29,10 @@ echo "jmeter.sh  -j $JMETER_LOG $JMETER_ARGS"
 # Keep entrypoint simple: we must pass the standard JMeter arguments
 jmeter.sh  -j $JMETER_LOG $JMETER_ARGS
 
-# Tail the log file to keep the container running
-tail -f $JMETER_LOG
+# If this is the master and JMETER_REPORT is set, generate the report in JMETER_REPORT
+if [[ $JMETER_MODE = "master" && -n $JMETER_REPORT ]]; then
+  # Create a report
+  mkdir -p $JMETER_REPORT
+  jmeter.sh -g ${JMETER_RESULTS} -o $JMETER_REPORT
+fi
+

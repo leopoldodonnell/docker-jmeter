@@ -1,11 +1,11 @@
-This Chart has run a JMeter master and {{ .Values.test.workers }} JMeter workers. The workers
+This Chart has run a JMeter master as a Kubernetes Job and {{ .Values.jmeter.workers }} JMeter workers. The workers
 should become available first, while the master must wait to download the JMeter repository
 with the JMX file for the test and must wait until all of the worker IPS have been identified
-and added to /{{ .Values.test.repo_name }}/{{ .Values.test.name }}.properties.
+and added to /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.name }}.properties.
 
-The test will be found at: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}.jmx
-The results will be found at: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}-results.jtl
-The logs can be found from kubernetes or: /{{ .Values.test.repo_name }}/{{ .Values.test.testDir}}/{{ .Values.test.name }}.log
+The test will be found at: /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.testDir}}/{{ .Values.jmeter.name }}.jmx
+The results will be found at: /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.testDir}}/{{ .Values.jmeter.name }}-results.jtl
+The logs can be found from kubernetes or: /{{ .Values.jmeter.repo_name }}/{{ .Values.jmeter.testDir}}/{{ .Values.jmeter.name }}.log
 
 Once the test has completed, you must download the results to your local workstation for analysis with JMeter. Once this is done
 you can delete the the deployment.

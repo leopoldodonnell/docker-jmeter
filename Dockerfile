@@ -3,7 +3,12 @@ FROM openjdk:8u121-jdk-alpine
 # Install cURL and CA Certificates for SSL support in the JVM, using glibc to interface oracle JRE with libc to run virtual machines
 RUN apk --update add curl ca-certificates tar unzip && \
     curl -Ls https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.21-r2/glibc-2.21-r2.apk> /tmp/glibc-2.21-r2.apk && \
-    apk add --allow-untrusted /tmp/glibc-2.21-r2.apk
+    apk add --allow-untrusted /tmp/glibc-2.21-r2.apk && \
+    mkdir -p /aws && \
+	  apk -Uuv add groff less python py-pip && \
+	  pip install awscli && \
+	  apk --purge -v del py-pip && \
+	  rm /var/cache/apk/*    
 
 
 ARG JMETER_VERSION="3.1"

@@ -6,15 +6,13 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     role: worker
 spec:
-  replicas: {{ .Values.test.workers }}
+  replicas: {{ .Values.jmeter.workers }}
   template:
     metadata:
       labels:
         app: {{ template "fullname" . }}
         role: worker
-    spec:
-      volumes:
-        
+    spec:        
       containers:
       - name: {{ template "fullname" . }}-worker
         image: "{{ .Values.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -26,6 +24,6 @@ spec:
         - name: JMETER_MODE
           value: worker
         - name: JMETER_LOG
-          value: {{ .Values.test.name }}.log
+          value: {{ .Values.jmeter.name }}.log
         resources:
 {{ toYaml .Values.resources | indent 12 }}

@@ -20,7 +20,8 @@ sshSecret: git-creds
 # branch: is the branch from the repository to use
 # testDir: is the sub directory in the repo where the JMX file will be found
 # workers: is the number of workers to launch
-test:
+# properties: should be a list of properties to set for your test run that will be added to the properties file
+jmeter:
   name: supply-test-name
   repo_name: jmeter
   repo: ssh://git@bitbucket.pearson.com/pvtools/jmeter.git
@@ -28,13 +29,9 @@ test:
   testDir: loadtest
   workers: 2
   properties:
-    threads=100
-    port=30012
-    hub=192.168.237.69
-    tdsurl=192.168.237.69
-    protocol=http
-    duration=7200
-    uetsleep=60000
+    threads: "100"
+    protocol: http
+    duration: "7200"
   
 image:
   repository: jmeter
